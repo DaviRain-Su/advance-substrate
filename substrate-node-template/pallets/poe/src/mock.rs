@@ -1,5 +1,5 @@
 use crate as pallet_poe;
-use frame_support::traits::{ConstU16, ConstU64};
+use frame_support::traits::{ConstU32, ConstU64};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
@@ -18,7 +18,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		TemplateModule: pallet_poe,
+		PoeModule: pallet_poe,
 	}
 );
 
@@ -44,12 +44,13 @@ impl system::Config for Test {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
+	type SS58Prefix = frame_support::traits::ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_poe::Config for Test {
+	type MaxClaimLength = ConstU32<512>;
 	type Event = Event;
 }
 
