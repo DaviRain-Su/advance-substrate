@@ -30,20 +30,15 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 	}
 
-
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		
-	}
+	pub enum Event<T: Config> {}
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
-	pub enum Error<T> {
-		
-	}
+	pub enum Error<T> {}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
@@ -54,10 +49,7 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn do_something(_origin: OriginFor<T>, _something: u32) -> DispatchResult {
-			
-
 			Ok(())
 		}
-
 	}
 }

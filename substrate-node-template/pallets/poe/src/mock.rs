@@ -1,4 +1,4 @@
-use crate as pallet_template;
+use crate as pallet_poe;
 use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
 use sp_core::H256;
