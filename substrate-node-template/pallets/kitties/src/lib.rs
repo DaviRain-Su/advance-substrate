@@ -83,6 +83,12 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_owner)]
 	pub type KittyOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::KittiyIndex, T::AccountId>;
 
+	// key is account id 
+	// value is vector kitty index
+	#[pallet::storage]
+	#[pallet::getter(fn owner_kitties)] 
+	pub type OwnerKitties<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::KittiyIndex, T::MaxKittyLen>>;
+
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -104,6 +110,9 @@ pub mod pallet {
 			+ Add<Output = Self::KittiyIndex>
 			+ KittiyConstant<Self>
 			+ Copy;
+
+		#[pallet::constant]
+		type MaxKittyLen: Get<Self::KittiyIndex>;
 	}
 
 	#[pallet::event]
