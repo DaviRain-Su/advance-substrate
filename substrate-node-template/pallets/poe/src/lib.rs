@@ -108,7 +108,11 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(0)]
-		pub fn transfer_claim(origin: OriginFor<T>, claim: Vec<u8>, dest: T::AccountId) -> DispatchResultWithPostInfo {
+		pub fn transfer_claim(
+			origin: OriginFor<T>,
+			claim: Vec<u8>,
+			dest: T::AccountId,
+		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 
 			let bounded_claim = BoundedVec::<u8, T::MaxClaimLength>::try_from(claim.clone())
@@ -118,12 +122,14 @@ pub mod pallet {
 
 			ensure!(owner == sender, Error::<T>::NotClaimOwner);
 
-			Proofs::<T>::insert(&bounded_claim, (dest.clone(), frame_system::Pallet::<T>::block_number()),);
+			Proofs::<T>::insert(
+				&bounded_claim,
+				(dest.clone(), frame_system::Pallet::<T>::block_number()),
+			);
 
 			Self::deposit_event(Event::TransferClaim(sender, dest, claim));
 
 			Ok(().into())
 		}
-
 	}
 }
