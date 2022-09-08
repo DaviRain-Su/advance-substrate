@@ -57,6 +57,8 @@ pub mod pallet {
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use scale_info::TypeInfo;
 	use sp_io::hashing::blake2_128;
+	use frame_support::PalletId;
+	use sp_runtime::traits::AccountIdConversion;
 
 	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub struct Kitty(pub [u8; 16]);
@@ -112,7 +114,10 @@ pub mod pallet {
 			+ Copy;
 
 		#[pallet::constant]
-		type MaxKittyLen: Get<Self::KittiyIndex>;
+		type MaxKittyLen: Get<u32>;
+
+		#[pallet::constant]
+		type EscrowAccount: Get<PalletId>;
 	}
 
 	#[pallet::event]
@@ -133,8 +138,12 @@ pub mod pallet {
 		InvalidKittyId,
 		/// same kitty id
 		SameKittyId,
-		// not owner
+		/// not owner
 		NotOwner,
+		/// Empty Kitties
+		EmptyKitties,
+		///
+		MaxLenKitties,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -151,12 +160,7 @@ pub mod pallet {
 			let dna = Self::random_value(&who);
 			let kitty = Kitty(dna);
 
-			// set kitty id, and kitty
-			Kitties::<T>::insert(kitty_id, &kitty);
-			// set kitty id and owner
-			KittyOwner::<T>::insert(kitty_id, &who);
-			// update kitty id
-			NextKittityId::<T>::set(kitty_id.add(T::KittiyIndex::one()));
+			Self::store_kitty(kitty_id, kitty.clone(), &who)?;
 
 			// emit event
 			Self::deposit_event(Event::KittyCreated(who, kitty_id, kitty));
@@ -190,12 +194,7 @@ pub mod pallet {
 
 			let new_kitty = Kitty(data);
 
-			// set kitty id, and kitty
-			Kitties::<T>::insert(kitty_id, &new_kitty);
-			// set kitty id and owner
-			KittyOwner::<T>::insert(kitty_id, &who);
-			// update kitty id
-			NextKittityId::<T>::set(kitty_id.add(T::KittiyIndex::one()));
+			Self::store_kitty(kitty_id, new_kitty.clone(), &who)?;
 
 			// emit event
 			Self::deposit_event(Event::KittyBred(who, kitty_id, new_kitty));
@@ -223,9 +222,52 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		/// buy a kitty 
+		#[pallet::weight(10_000)]
+		pub fn buy(origin: OriginFor<T>, kitty_id: T::KittiyIndex)  -> DispatchResult {
+			todo!()
+		}
+
+		/// seller a kitty
+		#[pallet::weight(10_000)]
+		pub fn seller(origin: OriginFor<T>, kitty_id: T::KittiyIndex)  -> DispatchResult {
+			todo!()
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
+
+		fn account_id() -> T::AccountId {
+			T::EscrowAccount::get().into_account_truncating()
+		}
+
+		// store kitty
+		fn store_kitty(kitty_id: T::KittiyIndex, kitty: Kitty, who: &T::AccountId) -> DispatchResult {
+			// set kitty id, and kitty
+			Kitties::<T>::insert(kitty_id, &kitty);
+			// set kitty id and owner
+			KittyOwner::<T>::insert(kitty_id, &who);
+			// update kitty id
+			NextKittityId::<T>::set(kitty_id.add(T::KittiyIndex::one()));
+
+			// add kittyid to owner 
+			if OwnerKitties::<T>::contains_key(&who) {
+				OwnerKitties::<T>::mutate(&who, |value| -> Result<(), sp_runtime::DispatchError> {
+					if let Some(v) = value {
+						v.try_push(kitty_id).map_err(|_| Error::<T>::MaxLenKitties)?;
+					}
+					Ok(())
+				})?
+			} else { 
+				let mut value: BoundedVec<T::KittiyIndex, T::MaxKittyLen> = frame_support::bounded_vec![];
+				value.force_push(kitty_id);
+				OwnerKitties::<T>::insert(&who, &value);
+			}
+
+			Ok(().into())
+		}
+
 		// get a random_value
 		fn random_value(sender: &T::AccountId) -> [u8; 16] {
 			let payload = (
@@ -252,5 +294,17 @@ pub mod pallet {
 				None => Err(()),
 			}
 		}
+
+		fn get_all_kitties(owner: &T::AccountId) -> Result<Vec<Kitty>, sp_runtime::DispatchError> {
+			let all_kitty_indexs = OwnerKitties::<T>::get(&owner).ok_or(Error::<T>::EmptyKitties)?;
+
+			let mut result = vec![];
+			for kitty_index in all_kitty_indexs.iter() {
+				let kitty = Kitties::<T>::get(&kitty_index).ok_or(Error::<T>::EmptyKitties)?;
+				result.push(kitty);
+			}
+
+			Ok(result)
+		} 
 	}
 }
