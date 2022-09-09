@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate core;
+
 use core::ops::Add;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -32,7 +34,7 @@ pub trait KittiyConstant<T: Config> {
 }
 
 #[derive(Decode, Encode, Debug, PartialEq, Eq, TypeInfo, Copy, Clone, MaxEncodedLen, Default)]
-pub struct MyKittiyIndex(u32);
+pub struct MyKittiyIndex(pub u32);
 
 impl<T: Config> KittiyConstant<T> for MyKittiyIndex {
 	fn one() -> Self {
@@ -41,6 +43,12 @@ impl<T: Config> KittiyConstant<T> for MyKittiyIndex {
 
 	fn max() -> Self {
 		MyKittiyIndex(u32::MAX)
+	}
+}
+
+impl From<u32> for MyKittiyIndex {
+	fn from(v: u32) -> Self {
+		Self(v)
 	}
 }
 
@@ -59,12 +67,13 @@ pub mod pallet {
 	use core::{fmt::Debug, ops::Add};
 	use frame_support::{
 		pallet_prelude::{StorageMap, *},
-		traits::{Currency, Randomness, ReservableCurrency},
+		traits::{Randomness, ReservableCurrency},
 		PalletId,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use scale_info::{prelude::vec::Vec, TypeInfo};
-	use sp_runtime::traits::{AccountIdConversion, CheckedConversion, Hash};
+	use sp_runtime::traits::{AccountIdConversion, Hash};
+	use sp_runtime::traits::Zero;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -128,11 +137,15 @@ pub mod pallet {
 			+ Default
 			+ Add<Output = Self::KittiyIndex>
 			+ KittiyConstant<Self>
-			+ Copy;
+			+ Copy
+			+ From<u32>;
 
-		type Currency: Currency<Self::AccountId>;
+		/// The currency trait.
+		type Currency: ReservableCurrency<Self::AccountId>;
 
-		type ReservableCurrency: ReservableCurrency<Self::AccountId>;
+		/// Reservation fee.
+		#[pallet::constant]
+		type ReservationFee: Get<BalanceOf<Self>>;
 
 		#[pallet::constant]
 		type MaxKittyLen: Get<u32>;
@@ -145,17 +158,17 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// kitty created
-		KittyCreated(T::AccountId, T::KittiyIndex, Kitty<T::Hash, BalanceOf<T>>),
+		KittyCreated{ creater: T::AccountId, kitty_index: T::KittiyIndex },
 		/// kitty bred
-		KittyBred(T::AccountId, T::KittiyIndex, Kitty<T::Hash, BalanceOf<T>>),
+		KittyBred{creater: T::AccountId, kitty_index: T::KittiyIndex},
 		/// kitty transfer
-		TransferKitty(T::AccountId, T::AccountId, T::KittiyIndex),
+		TransferKitty{ from: T::AccountId, to:  T::AccountId, kitty_index: T::KittiyIndex},
 		/// Sell kitty
-		SellKitty(T::AccountId, T::AccountId, T::KittiyIndex),
+		SellKitty{seller: T::AccountId, escrow: T::AccountId, kitty_index: T::KittiyIndex},
 		/// cancel sell kitty
-		CancelSellKitty(T::AccountId, T::AccountId, T::KittiyIndex),
+		CancelSellKitty{escrow: T::AccountId, seller: T::AccountId, kitty_index:  T::KittiyIndex},
 		/// Buy kitty
-		BuyKitty(T::AccountId, T::AccountId, T::KittiyIndex),
+		BuyKitty{seller: T::AccountId,buyer:  T::AccountId,  kitty_index: T::KittiyIndex },
 	}
 
 	// Errors inform users that something went wrong.
@@ -169,10 +182,12 @@ pub mod pallet {
 		NotOwner,
 		/// Empty Kitties
 		EmptyKitties,
-		///
+		/// max length litties
 		MaxLenKitties,
-		///
-		KittNoSell,
+		/// kitty no sell
+		KittyNoSell,
+		/// should not same kitty owner
+		ShouldNotSame
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -184,7 +199,7 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn create(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::InvalidKittyId)?;
+			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::MaxLenKitties)?;
 
 			let dna = Self::random_hash(&who);
 			let kitty = Kitty::<T::Hash, BalanceOf<T>> {
@@ -196,10 +211,12 @@ pub mod pallet {
 
 			Self::store_kitty(kitty_id, kitty.clone(), &who)?;
 
-			T::ReservableCurrency::reserve(&who, 1000_000_000_000_000_000_000u128.checked_into().unwrap())?;
+			// deposit token to who
+			let deposit = T::ReservationFee::get();
+			T::Currency::reserve(&who, deposit)?;
 
 			// emit event
-			Self::deposit_event(Event::KittyCreated(who, kitty_id, kitty));
+			Self::deposit_event(Event::KittyCreated{creater: who, kitty_index: kitty_id});
 
 			Ok(().into())
 		}
@@ -216,10 +233,12 @@ pub mod pallet {
 			ensure!(father != mother, Error::<T>::SameKittyId);
 
 			let kitty_1 = Self::get_kitty(father).map_err(|_| Error::<T>::InvalidKittyId)?;
+			// dbg!(kitty_1.clone());
 			let kitty_2 = Self::get_kitty(mother).map_err(|_| Error::<T>::InvalidKittyId)?;
+			// dbg!(kitty_2.clone());
 
 			// get next_id
-			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::InvalidKittyId)?;
+			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::MaxLenKitties)?;
 
 			// select for breeding
 			let selector = Self::random_hash(&who);
@@ -239,7 +258,7 @@ pub mod pallet {
 			Self::store_kitty(kitty_id, new_kitty.clone(), &who)?;
 
 			// emit event
-			Self::deposit_event(Event::KittyBred(who, kitty_id, new_kitty));
+			Self::deposit_event(Event::KittyBred{ creater: who, kitty_index: kitty_id});
 
 			Ok(().into())
 		}
@@ -262,16 +281,21 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 
 			// get kitty owner account and escrow account
-			let (self_kitty_owner, escorw_account) =
-				Self::sell_kitties(kitty_id).ok_or(Error::<T>::KittNoSell)?;
-			ensure!(escorw_account != Self::account_id(), Error::<T>::KittNoSell);
+			let (sell_kitty_owner, escorw_account) =
+				Self::sell_kitties(kitty_id).ok_or(Error::<T>::KittyNoSell)?;
+			ensure!(escorw_account == Self::account_id(), Error::<T>::KittyNoSell);
+			ensure!(sell_kitty_owner != owner, Error::<T>::ShouldNotSame);
 
 			<KittyOwner<T>>::insert(kitty_id, owner.clone());
 
 			<SellKitties<T>>::remove(kitty_id);
 
+			let deposit = T::ReservationFee::get();
+			let err_amount = T::Currency::unreserve(&sell_kitty_owner, deposit);
+			debug_assert!(err_amount.is_zero());
+
 			// emit event
-			Self::deposit_event(Event::BuyKitty(owner, self_kitty_owner, kitty_id));
+			Self::deposit_event(Event::BuyKitty{buyer: owner, seller: sell_kitty_owner, kitty_index: kitty_id});
 			Ok(().into())
 		}
 
@@ -292,7 +316,7 @@ pub mod pallet {
 			<SellKitties<T>>::insert(kitty_id, (owner.clone(), escrow_account.clone()));
 
 			// emit event
-			Self::deposit_event(Event::SellKitty(owner, escrow_account, kitty_id));
+			Self::deposit_event(Event::SellKitty{seller: owner, escrow: escrow_account,kitty_index: kitty_id});
 			Ok(().into())
 		}
 
@@ -300,9 +324,12 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn cancel_sell(origin: OriginFor<T>, kitty_id: T::KittiyIndex) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
+
+			// ensure kitty_id have been set to Sell kitties queue
+			// use sell_kitties function we get they are (owner account and escrow_account)
 			ensure!(
-				Self::sell_kitties(kitty_id) != Some((owner.clone(), Self::account_id())),
-				Error::<T>::KittNoSell
+				Self::sell_kitties(kitty_id) == Some((owner.clone(), Self::account_id())),
+				Error::<T>::KittyNoSell
 			);
 
 			// set owner
@@ -312,7 +339,7 @@ pub mod pallet {
 			<SellKitties<T>>::remove(kitty_id);
 
 			// emit event
-			Self::deposit_event(Event::CancelSellKitty(Self::account_id(), owner, kitty_id));
+			Self::deposit_event(Event::CancelSellKitty{escrow: Self::account_id(), seller: owner, kitty_index: kitty_id});
 			Ok(().into())
 		}
 	}
@@ -362,14 +389,13 @@ pub mod pallet {
 				<frame_system::Pallet<T>>::extrinsic_index(),
 			);
 
-			// payload.using_encoded(blake2_128)
 			T::Hashing::hash_of(&payload)
 		}
 
 		// get next identifier
 		fn get_next_id() -> Result<T::KittiyIndex, ()> {
 			match Self::next_kitty_id() {
-				val if val == T::KittiyIndex::max() => Err(()),
+				val if val == T::MaxKittyLen::get().into() => Err(()),
 				val => Ok(val),
 			}
 		}
@@ -408,7 +434,7 @@ pub mod pallet {
 			<KittyOwner<T>>::insert(kitty_id, to.clone());
 
 			// emit event
-			Self::deposit_event(Event::TransferKitty(from.clone(), to.clone(), kitty_id.clone()));
+			Self::deposit_event(Event::TransferKitty{ from : from.clone(), to: to.clone(), kitty_index:  kitty_id.clone() });
 
 			Ok(().into())
 		}

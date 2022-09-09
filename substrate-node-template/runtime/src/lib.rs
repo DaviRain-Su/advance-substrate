@@ -22,6 +22,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use frame_support::PalletId;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -44,7 +45,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 /// Import the template pallet.
-pub use pallet_template;
+// pub use pallet_template;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -277,11 +278,19 @@ impl pallet_poe::Config for Runtime {
 }
 
 // + pallet_kitties config
-// impl pallet_kitties::Config for Runtime {
-// 	type Event = Event;
-// 	type Randomness = RandomnessCollectiveFlip;
-// 	type KittiyIndex = pallet_kitties::MyKittiyIndex;
-// }
+parameter_types! {
+	pub const KittyEscrowAccount: PalletId = PalletId(*b"py/kitti");
+}
+
+impl pallet_kitties::Config for Runtime {
+	type Event = Event;
+	type Randomness = RandomnessCollectiveFlip;
+	type KittiyIndex = pallet_kitties::MyKittiyIndex;
+	type Currency = Balances;
+	type ReservationFee = ConstU128<100>;
+	type MaxKittyLen = ConstU32<512>;
+	type EscrowAccount = KittyEscrowAccount;
+}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -302,7 +311,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		Poe: pallet_poe,
-		// Kitties: pallet_kitties,
+		Kitties: pallet_kitties,
 	}
 );
 
