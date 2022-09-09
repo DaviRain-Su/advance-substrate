@@ -15,14 +15,14 @@ fn test_create_kitty_success() {
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
 		assert_events(vec![Event::Kitties(KittyEvent::KittyCreated {
-			creater: alice,
+			create: alice,
 			kitty_index: 0,
 		})]);
 	})
 }
 
 #[test]
-fn test_create_kitty_faild() {
+fn test_create_kitty_failed() {
 	new_test_ext().execute_with(|| {
 		let alice: AccountId32 = PalletId(*b"py/alice").into_account_truncating();
 
@@ -42,11 +42,7 @@ fn test_breed_successfully() {
 		assert_ok!(Kitties::create(Origin::signed(alice.clone()))); // kitty_id 0
 		assert_ok!(Kitties::create(Origin::signed(alice.clone()))); // kitty_id 1
 
-		assert_ok!(Kitties::breed(
-			Origin::signed(alice.clone()),
-			0,
-			1
-		)); // kitty_id 2
+		assert_ok!(Kitties::breed(Origin::signed(alice.clone()), 0, 1)); // kitty_id 2
 
 		assert_events(vec![Event::Kitties(KittyEvent::KittyBred {
 			creater: alice,
@@ -158,10 +154,7 @@ fn test_sell_kitty_failed_no_owner() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_noop!(
-			Kitties::sell(Origin::signed(alice.clone()), 1),
-			Error::<Test>::NotOwner
-		);
+		assert_noop!(Kitties::sell(Origin::signed(alice.clone()), 1), Error::<Test>::NotOwner);
 	})
 }
 
@@ -223,7 +216,7 @@ fn test_buy_kitty_success() {
 }
 
 #[test]
-fn test_buy_kitty_faild_kitty_no_sell() {
+fn test_buy_kitty_failed_kitty_no_sell() {
 	new_test_ext().execute_with(|| {
 		let alice: AccountId32 = PalletId(*b"py/alice").into_account_truncating();
 		let bob: AccountId32 = PalletId(*b"py/bob00").into_account_truncating();
@@ -232,15 +225,12 @@ fn test_buy_kitty_faild_kitty_no_sell() {
 
 		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
-		assert_noop!(
-			Kitties::buy(Origin::signed(bob.clone()), 1),
-			Error::<Test>::KittyNoSell
-		);
+		assert_noop!(Kitties::buy(Origin::signed(bob.clone()), 1), Error::<Test>::KittyNoSell);
 	})
 }
 
 #[test]
-fn test_buy_kitty_faild_should_no_same_owner() {
+fn test_buy_kitty_failed_should_no_same_owner() {
 	new_test_ext().execute_with(|| {
 		let alice: AccountId32 = PalletId(*b"py/alice").into_account_truncating();
 
@@ -248,9 +238,6 @@ fn test_buy_kitty_faild_should_no_same_owner() {
 
 		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
-		assert_noop!(
-			Kitties::buy(Origin::signed(alice.clone()), 0),
-			Error::<Test>::ShouldNotSame
-		);
+		assert_noop!(Kitties::buy(Origin::signed(alice.clone()), 0), Error::<Test>::ShouldNotSame);
 	})
 }

@@ -84,7 +84,7 @@ parameter_types! {
 impl pallet_kitties::Config for Test {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
-	type KittiyIndex = u32;
+	type KittyIndex = u32;
 	type Currency = Balances;
 	type ReservationFee = ConstU128<100>;
 	type MaxKittyLen = ConstU32<512>;
