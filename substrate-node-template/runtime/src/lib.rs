@@ -282,10 +282,11 @@ parameter_types! {
 	pub const KittyEscrowAccount: PalletId = PalletId(*b"py/kitti");
 }
 
+type KittiyIndex = u32;
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
-	type KittiyIndex = pallet_kitties::MyKittiyIndex;
+	type KittiyIndex = KittiyIndex;
 	type Currency = Balances;
 	type ReservationFee = ConstU128<100>;
 	type MaxKittyLen = ConstU32<512>;

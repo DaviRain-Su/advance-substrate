@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Event as KittyEvent, MyKittiyIndex};
+use crate::{mock::*, Error, Event as KittyEvent};
 use frame_support::{assert_noop, assert_ok, PalletId};
 use sp_runtime::{traits::AccountIdConversion, AccountId32};
 
@@ -16,7 +16,7 @@ fn test_create_kitty_success() {
 
 		assert_events(vec![Event::Kitties(KittyEvent::KittyCreated {
 			creater: alice,
-			kitty_index: MyKittiyIndex(0),
+			kitty_index: 0,
 		})]);
 	})
 }
@@ -44,13 +44,13 @@ fn test_breed_successfully() {
 
 		assert_ok!(Kitties::breed(
 			Origin::signed(alice.clone()),
-			MyKittiyIndex(0),
-			MyKittiyIndex(1)
+			0,
+			1
 		)); // kitty_id 2
 
 		assert_events(vec![Event::Kitties(KittyEvent::KittyBred {
 			creater: alice,
-			kitty_index: MyKittiyIndex(2),
+			kitty_index: 2,
 		})]);
 	})
 }
@@ -64,7 +64,7 @@ fn test_breed_failed_by_same_kitty_id() {
 		assert_ok!(Kitties::create(Origin::signed(alice.clone()))); // kitty_id 1
 
 		assert_noop!(
-			Kitties::breed(Origin::signed(alice.clone()), MyKittiyIndex(0), MyKittiyIndex(0)),
+			Kitties::breed(Origin::signed(alice.clone()), 0, 0),
 			Error::<Test>::SameKittyId
 		); // kitty_id 2
 	})
@@ -76,7 +76,7 @@ fn test_breed_failed_not_create_father_and_mother() {
 		let alice: AccountId32 = PalletId(*b"py/alice").into_account_truncating();
 
 		assert_noop!(
-			Kitties::breed(Origin::signed(alice.clone()), MyKittiyIndex(0), MyKittiyIndex(1)),
+			Kitties::breed(Origin::signed(alice.clone()), 0, 1),
 			Error::<Test>::InvalidKittyId
 		); // kitty_id 2
 	})
@@ -92,7 +92,7 @@ fn test_breed_failed_create_max_len_kitties() {
 		}
 
 		assert_noop!(
-			Kitties::breed(Origin::signed(alice.clone()), MyKittiyIndex(510), MyKittiyIndex(511)),
+			Kitties::breed(Origin::signed(alice.clone()), 510, 511),
 			Error::<Test>::MaxLenKitties
 		); // kitty_id 2
 	})
@@ -107,12 +107,12 @@ fn test_transfer_success() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::transfer(Origin::signed(alice.clone()), MyKittiyIndex(0), bob.clone()));
+		assert_ok!(Kitties::transfer(Origin::signed(alice.clone()), 0, bob.clone()));
 
 		assert_events(vec![Event::Kitties(KittyEvent::TransferKitty {
 			from: alice,
 			to: bob,
-			kitty_index: MyKittiyIndex(0),
+			kitty_index: 0,
 		})]);
 	})
 }
@@ -126,7 +126,7 @@ fn test_transfer_failed_no_owner() {
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
 		assert_noop!(
-			Kitties::transfer(Origin::signed(alice.clone()), MyKittiyIndex(1), bob.clone()),
+			Kitties::transfer(Origin::signed(alice.clone()), 1, bob.clone()),
 			Error::<Test>::NotOwner
 		);
 	})
@@ -139,14 +139,14 @@ fn test_sell_kitty_success() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
 		let escrow_account: AccountId32 = PalletId(*b"py/kitti").into_account_truncating();
 
 		assert_events(vec![Event::Kitties(KittyEvent::SellKitty {
 			seller: alice,
 			escrow: escrow_account,
-			kitty_index: MyKittiyIndex(0),
+			kitty_index: 0,
 		})]);
 	})
 }
@@ -159,7 +159,7 @@ fn test_sell_kitty_failed_no_owner() {
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
 		assert_noop!(
-			Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(1)),
+			Kitties::sell(Origin::signed(alice.clone()), 1),
 			Error::<Test>::NotOwner
 		);
 	})
@@ -172,16 +172,16 @@ fn test_cancel_sell_success() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
-		assert_ok!(Kitties::cancel_sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::cancel_sell(Origin::signed(alice.clone()), 0));
 
 		let escrow_account: AccountId32 = PalletId(*b"py/kitti").into_account_truncating();
 
 		assert_events(vec![Event::Kitties(KittyEvent::CancelSellKitty {
 			escrow: escrow_account,
 			seller: alice,
-			kitty_index: MyKittiyIndex(0),
+			kitty_index: 0,
 		})]);
 	})
 }
@@ -193,10 +193,10 @@ fn test_cancel_sell_failed_no_owner() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
 		assert_noop!(
-			Kitties::cancel_sell(Origin::signed(alice.clone()), MyKittiyIndex(1)),
+			Kitties::cancel_sell(Origin::signed(alice.clone()), 1),
 			Error::<Test>::KittyNoSell
 		);
 	})
@@ -210,14 +210,14 @@ fn test_buy_kitty_success() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
-		assert_ok!(Kitties::buy(Origin::signed(bob.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::buy(Origin::signed(bob.clone()), 0));
 
 		assert_events(vec![Event::Kitties(KittyEvent::BuyKitty {
 			buyer: bob,
 			seller: alice,
-			kitty_index: MyKittiyIndex(0),
+			kitty_index: 0,
 		})]);
 	})
 }
@@ -230,10 +230,10 @@ fn test_buy_kitty_faild_kitty_no_sell() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
 		assert_noop!(
-			Kitties::buy(Origin::signed(bob.clone()), MyKittiyIndex(1)),
+			Kitties::buy(Origin::signed(bob.clone()), 1),
 			Error::<Test>::KittyNoSell
 		);
 	})
@@ -246,10 +246,10 @@ fn test_buy_kitty_faild_should_no_same_owner() {
 
 		assert_ok!(Kitties::create(Origin::signed(alice.clone())));
 
-		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), MyKittiyIndex(0)));
+		assert_ok!(Kitties::sell(Origin::signed(alice.clone()), 0));
 
 		assert_noop!(
-			Kitties::buy(Origin::signed(alice.clone()), MyKittiyIndex(0)),
+			Kitties::buy(Origin::signed(alice.clone()), 0),
 			Error::<Test>::ShouldNotSame
 		);
 	})

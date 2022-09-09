@@ -2,15 +2,11 @@
 
 extern crate core;
 
-use core::ops::Add;
-
-use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Currency;
 /// Edit this file to define custom logic or remove it if it is not needed.
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
-use scale_info::TypeInfo;
 
 #[cfg(test)]
 mod mock;
@@ -27,43 +23,10 @@ pub use crate::kitty::Kitty;
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub trait KittiyConstant<T: Config> {
-	fn one() -> Self;
-
-	fn max() -> Self;
-}
-
-#[derive(Decode, Encode, Debug, PartialEq, Eq, TypeInfo, Copy, Clone, MaxEncodedLen, Default)]
-pub struct MyKittiyIndex(pub u32);
-
-impl<T: Config> KittiyConstant<T> for MyKittiyIndex {
-	fn one() -> Self {
-		MyKittiyIndex(1)
-	}
-
-	fn max() -> Self {
-		MyKittiyIndex(u32::MAX)
-	}
-}
-
-impl From<u32> for MyKittiyIndex {
-	fn from(v: u32) -> Self {
-		Self(v)
-	}
-}
-
-impl Add for MyKittiyIndex {
-	type Output = MyKittiyIndex;
-
-	fn add(self, rhs: Self) -> Self::Output {
-		MyKittiyIndex(self.0 + rhs.0)
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::{BalanceOf, KittiyConstant, Kitty};
-	use codec::{Encode, EncodeLike, MaxEncodedLen};
+	use crate::{BalanceOf, Kitty};
+	use codec::{Codec, MaxEncodedLen};
 	use core::{fmt::Debug, ops::Add};
 	use frame_support::{
 		pallet_prelude::{StorageMap, *},
@@ -72,7 +35,9 @@ pub mod pallet {
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use scale_info::{prelude::vec::Vec, TypeInfo};
-	use sp_runtime::traits::{AccountIdConversion, Hash, Zero};
+	use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned, Hash, Zero};
+	use sp_runtime::traits::One;
+	use sp_runtime::traits::Bounded;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -124,20 +89,17 @@ pub mod pallet {
 
 		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 
-		type KittiyIndex: TypeInfo
-			+ Decode
-			+ Encode
-			+ PartialEq
-			+ Eq
-			+ Clone
-			+ Debug
-			+ EncodeLike
-			+ MaxEncodedLen
+		/// Kittiy Index
+		type KittiyIndex: Parameter
+			+ Member
+			+ AtLeast32BitUnsigned
+			+ Codec
 			+ Default
-			+ Add<Output = Self::KittiyIndex>
-			+ KittiyConstant<Self>
 			+ Copy
-			+ From<u32>;
+			+ MaybeSerializeDeserialize
+			+ Debug
+			+ MaxEncodedLen
+			+ TypeInfo;
 
 		/// The currency trait.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -199,6 +161,9 @@ pub mod pallet {
 		pub fn create(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::MaxLenKitties)?;
+			// dbg!(kitty_id);
+			// let kitty_index_max = T::KittiyIndex::max_value();
+			// dbg!(kitty_index_max);
 
 			let dna = Self::random_hash(&who);
 			let kitty = Kitty::<T::Hash, BalanceOf<T>> {
@@ -372,7 +337,7 @@ pub mod pallet {
 			// set kitty id and owner
 			KittyOwner::<T>::insert(kitty_id, &who);
 			// update kitty id
-			NextKittityId::<T>::set(kitty_id.add(T::KittiyIndex::one()));
+			NextKittityId::<T>::set(kitty_id + T::KittiyIndex::one());
 
 			// add kittyid to owner
 			if OwnerKitties::<T>::contains_key(&who) {
@@ -406,7 +371,10 @@ pub mod pallet {
 		// get next identifier
 		fn get_next_id() -> Result<T::KittiyIndex, ()> {
 			match Self::next_kitty_id() {
-				val if val == T::MaxKittyLen::get().into() => Err(()),
+				val if val == T::KittiyIndex::max_value() => {
+					dbg!(val);
+					Err(())
+				},
 				val => Ok(val),
 			}
 		}
