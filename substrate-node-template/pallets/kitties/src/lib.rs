@@ -18,6 +18,9 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+mod kitty;
+pub use crate::kitty::Kitty;
+
 pub trait KittiyConstant<T: Config> {
 	fn one() -> Self;
 
@@ -47,22 +50,19 @@ impl Add for MyKittiyIndex {
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::Kitty;
 	use crate::KittiyConstant;
 	use codec::{Encode, EncodeLike, MaxEncodedLen};
 	use core::{fmt::Debug, ops::Add};
 	use frame_support::{
-		pallet_prelude::{StorageDoubleMap, StorageMap, *},
+		pallet_prelude::{StorageMap, *},
 		traits::Randomness,
 		PalletId,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use scale_info::{prelude::vec::Vec, TypeInfo};
-	use sp_io::hashing::blake2_128;
 	use sp_runtime::traits::AccountIdConversion;
-
-	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	pub struct Kitty(pub [u8; 16]);
-
+	use sp_runtime::traits::Hash;
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
@@ -85,7 +85,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn kitties)]
-	pub type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, T::KittiyIndex, Kitty>;
+	pub type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, T::KittiyIndex, Kitty<T::Hash, T::Balance>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn kitty_owner)]
@@ -107,7 +107,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config  + pallet_balances::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -138,9 +138,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// kitty created
-		KittyCreated(T::AccountId, T::KittiyIndex, Kitty),
+		KittyCreated(T::AccountId, T::KittiyIndex, Kitty<T::Hash, T::Balance>),
 		/// kitty bred
-		KittyBred(T::AccountId, T::KittiyIndex, Kitty),
+		KittyBred(T::AccountId, T::KittiyIndex, Kitty<T::Hash, T::Balance>),
 		/// kitty transfer
 		TransferKitty(T::AccountId, T::AccountId, T::KittiyIndex),
 		/// Sell kitty
@@ -179,8 +179,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::InvalidKittyId)?;
 
-			let dna = Self::random_value(&who);
-			let kitty = Kitty(dna);
+			let dna = Self::random_hash(&who);
+			let kitty = Kitty::<T::Hash, T::Balance> {
+				id: dna.clone(),
+				dna: dna.clone(),
+				price: T::Balance::default(),
+				gender: Kitty::<T, T>::gender(dna.clone()),
+			};
 
 			Self::store_kitty(kitty_id, kitty.clone(), &who)?;
 
@@ -208,13 +213,18 @@ pub mod pallet {
 			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::InvalidKittyId)?;
 
 			// select for breeding
-			let selector = Self::random_value(&who);
-			let mut data = [0u8; 16];
-			for i in 0..data.len() {
-				data[i] = kitty_1.0[i] & selector[i] | kitty_2.0[i] & !selector[i];
+			let selector = Self::random_hash(&who);
+			let mut new_dna = T::Hash::default();
+			for i in 0..new_dna.as_ref().len() {
+				new_dna.as_mut()[i] = kitty_1.dna.as_ref()[i] & selector.as_ref()[i] | kitty_2.dna.as_ref()[i] & !selector.as_ref()[i];
 			}
 
-			let new_kitty = Kitty(data);
+			let new_kitty = Kitty::<T::Hash, T::Balance> {
+				id: new_dna.clone(),
+				dna: new_dna.clone(),
+				price: T::Balance::default(),
+				gender: Kitty::<T, T>::gender(new_dna.clone()),
+			};
 
 			Self::store_kitty(kitty_id, new_kitty.clone(), &who)?;
 
@@ -306,7 +316,7 @@ pub mod pallet {
 		// store kitty
 		fn store_kitty(
 			kitty_id: T::KittiyIndex,
-			kitty: Kitty,
+			kitty: Kitty<T::Hash, T::Balance>,
 			who: &T::AccountId,
 		) -> DispatchResult {
 			// set kitty id, and kitty
@@ -335,14 +345,15 @@ pub mod pallet {
 		}
 
 		// get a random_value
-		fn random_value(sender: &T::AccountId) -> [u8; 16] {
+		fn random_hash(sender: &T::AccountId) -> T::Hash {
 			let payload = (
 				T::Randomness::random_seed(),
 				&sender,
 				<frame_system::Pallet<T>>::extrinsic_index(),
 			);
 
-			payload.using_encoded(blake2_128)
+			// payload.using_encoded(blake2_128)
+			T::Hashing::hash_of(&payload)
 		}
 
 		// get next identifier
@@ -354,7 +365,7 @@ pub mod pallet {
 		}
 
 		// get kitty by id
-		fn get_kitty(kitty_id: T::KittiyIndex) -> Result<Kitty, ()> {
+		fn get_kitty(kitty_id: T::KittiyIndex) -> Result<Kitty<T::Hash, T::Balance>, ()> {
 			match Self::kitties(kitty_id) {
 				Some(kitty) => Ok(kitty),
 				None => Err(()),
@@ -362,7 +373,7 @@ pub mod pallet {
 		}
 
 		// get all kitty by account owner
-		pub fn get_all_kitties(owner: &T::AccountId) -> Result<Vec<Kitty>, sp_runtime::DispatchError> {
+		pub fn get_all_kitties(owner: &T::AccountId) -> Result<Vec<Kitty<T::Hash, T::Balance>>, sp_runtime::DispatchError> {
 			let all_kitty_indexs =
 				OwnerKitties::<T>::get(&owner).ok_or(Error::<T>::EmptyKitties)?;
 
