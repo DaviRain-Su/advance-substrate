@@ -77,18 +77,8 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub const KittyEscrowAccount: PalletId = PalletId(*b"py/kitti");
-}
-
 impl pallet_kitties::Config for Test {
 	type Event = Event;
-	type Randomness = RandomnessCollectiveFlip;
-	type KittyIndex = u32;
-	type Currency = Balances;
-	type ReservationFee = ConstU128<100>;
-	type MaxKittyLen = ConstU32<512>;
-	type EscrowAccount = KittyEscrowAccount;
 }
 
 pub const MILLICENTS: Balance = 10_000_000_000;
