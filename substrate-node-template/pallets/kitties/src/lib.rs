@@ -2,7 +2,7 @@
 
 use core::ops::Add;
 
-use codec::{Encode, Decode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 /// Edit this file to define custom logic or remove it if it is not needed.
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/reference/frame-pallets/>
@@ -31,18 +31,18 @@ impl<T: Config> KittiyConstant<T> for MyKittiyIndex {
 	fn one() -> Self {
 		MyKittiyIndex(1)
 	}
-	
+
 	fn max() -> Self {
 		MyKittiyIndex(u32::MAX)
 	}
 }
 
 impl Add for MyKittiyIndex {
-    type Output = MyKittiyIndex;
+	type Output = MyKittiyIndex;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        MyKittiyIndex(self.0 + rhs.0)
-    }
+	fn add(self, rhs: Self) -> Self::Output {
+		MyKittiyIndex(self.0 + rhs.0)
+	}
 }
 
 #[frame_support::pallet]
@@ -51,17 +51,14 @@ pub mod pallet {
 	use codec::{Encode, EncodeLike, MaxEncodedLen};
 	use core::{fmt::Debug, ops::Add};
 	use frame_support::{
-		pallet_prelude::{StorageMap, *, StorageDoubleMap},
+		pallet_prelude::{StorageDoubleMap, StorageMap, *},
 		traits::Randomness,
+		PalletId,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
-	use scale_info::TypeInfo;
+	use scale_info::{prelude::vec::Vec, TypeInfo};
 	use sp_io::hashing::blake2_128;
-	use frame_support::PalletId;
 	use sp_runtime::traits::AccountIdConversion;
-	use scale_info::prelude::vec::Vec;
-
-	
 
 	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub struct Kitty(pub [u8; 16]);
@@ -88,17 +85,19 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_owner)]
 	pub type KittyOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::KittiyIndex, T::AccountId>;
 
-	// key is account id 
+	// key is account id
 	// value is vector kitty index
 	#[pallet::storage]
-	#[pallet::getter(fn owner_kitties)] 
-	pub type OwnerKitties<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::KittiyIndex, T::MaxKittyLen>>;
+	#[pallet::getter(fn owner_kitties)]
+	pub type OwnerKitties<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::KittiyIndex, T::MaxKittyLen>>;
 
-	// key is kitty_id 
+	// key is kitty_id
 	// value is (sell account, escrow account)
 	#[pallet::storage]
-	#[pallet::getter(fn sell_kitties)] 
-	pub type SellKitties<T: Config> = StorageMap<_, Blake2_128Concat, T::KittiyIndex, (T::AccountId, T::AccountId)>;
+	#[pallet::getter(fn sell_kitties)]
+	pub type SellKitties<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::KittiyIndex, (T::AccountId, T::AccountId)>;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -140,7 +139,7 @@ pub mod pallet {
 		TransferKitty(T::AccountId, T::AccountId, T::KittiyIndex),
 		/// Sell kitty
 		SellKitty(T::AccountId, T::AccountId, T::KittiyIndex),
-		/// cancel sell kitty 
+		/// cancel sell kitty
 		CancelSellKitty(T::AccountId, T::AccountId, T::KittiyIndex),
 		/// Buy kitty
 		BuyKitty(T::AccountId, T::AccountId, T::KittiyIndex),
@@ -231,15 +230,16 @@ pub mod pallet {
 			Self::inner_transfer(&who, &new_owner, &kitty_id)
 		}
 
-		/// buy a kitty 
+		/// buy a kitty
 		#[pallet::weight(10_000)]
-		pub fn buy(origin: OriginFor<T>, kitty_id: T::KittiyIndex)  -> DispatchResult {
+		pub fn buy(origin: OriginFor<T>, kitty_id: T::KittiyIndex) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 
 			// get kitty owner account and escrow account
-			let (self_kitty_owner, escorw_account) = Self::sell_kitties(kitty_id).ok_or(Error::<T>::KittNoSell)?;
+			let (self_kitty_owner, escorw_account) =
+				Self::sell_kitties(kitty_id).ok_or(Error::<T>::KittNoSell)?;
 			ensure!(escorw_account != Self::account_id(), Error::<T>::KittNoSell);
-	
+
 			<KittyOwner<T>>::insert(kitty_id, owner.clone());
 
 			<SellKitties<T>>::remove(kitty_id);
@@ -251,7 +251,7 @@ pub mod pallet {
 
 		/// seller a kitty
 		#[pallet::weight(10_000)]
-		pub fn sell(origin: OriginFor<T>, kitty_id: T::KittiyIndex)  -> DispatchResult {
+		pub fn sell(origin: OriginFor<T>, kitty_id: T::KittiyIndex) -> DispatchResult {
 			// get owner
 			let owner = ensure_signed(origin)?;
 
@@ -259,12 +259,12 @@ pub mod pallet {
 
 			// escrow kitty account
 			let escrow_account = Self::account_id();
-		
+
 			<KittyOwner<T>>::insert(kitty_id, escrow_account.clone());
-			
+
 			// append sell kitties queue
 			<SellKitties<T>>::insert(kitty_id, (owner.clone(), escrow_account.clone()));
-			
+
 			// emit event
 			Self::deposit_event(Event::SellKitty(owner, escrow_account, kitty_id));
 			Ok(().into())
@@ -274,14 +274,17 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn cancel_sell(origin: OriginFor<T>, kitty_id: T::KittiyIndex) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
-			ensure!(Self::sell_kitties(kitty_id) != Some((owner.clone(), Self::account_id())), Error::<T>::KittNoSell);
+			ensure!(
+				Self::sell_kitties(kitty_id) != Some((owner.clone(), Self::account_id())),
+				Error::<T>::KittNoSell
+			);
 
 			// set owner
 			<KittyOwner<T>>::insert(kitty_id, owner.clone());
-			// remove kitty from sell kitty queue  
-			
+			// remove kitty from sell kitty queue
+
 			<SellKitties<T>>::remove(kitty_id);
-			
+
 			// emit event
 			Self::deposit_event(Event::CancelSellKitty(Self::account_id(), owner, kitty_id));
 			Ok(().into())
@@ -289,13 +292,16 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-
 		fn account_id() -> T::AccountId {
 			T::EscrowAccount::get().into_account_truncating()
 		}
 
 		// store kitty
-		fn store_kitty(kitty_id: T::KittiyIndex, kitty: Kitty, who: &T::AccountId) -> DispatchResult {
+		fn store_kitty(
+			kitty_id: T::KittiyIndex,
+			kitty: Kitty,
+			who: &T::AccountId,
+		) -> DispatchResult {
 			// set kitty id, and kitty
 			Kitties::<T>::insert(kitty_id, &kitty);
 			// set kitty id and owner
@@ -303,7 +309,7 @@ pub mod pallet {
 			// update kitty id
 			NextKittityId::<T>::set(kitty_id.add(T::KittiyIndex::one()));
 
-			// add kittyid to owner 
+			// add kittyid to owner
 			if OwnerKitties::<T>::contains_key(&who) {
 				OwnerKitties::<T>::mutate(&who, |value| -> Result<(), sp_runtime::DispatchError> {
 					if let Some(v) = value {
@@ -311,8 +317,9 @@ pub mod pallet {
 					}
 					Ok(())
 				})?
-			} else { 
-				let mut value: BoundedVec<T::KittiyIndex, T::MaxKittyLen> = BoundedVec::with_bounded_capacity(10);
+			} else {
+				let mut value: BoundedVec<T::KittiyIndex, T::MaxKittyLen> =
+					BoundedVec::with_bounded_capacity(10);
 				value.force_push(kitty_id);
 				OwnerKitties::<T>::insert(&who, &value);
 			}
@@ -348,7 +355,8 @@ pub mod pallet {
 		}
 
 		fn get_all_kitties(owner: &T::AccountId) -> Result<Vec<Kitty>, sp_runtime::DispatchError> {
-			let all_kitty_indexs = OwnerKitties::<T>::get(&owner).ok_or(Error::<T>::EmptyKitties)?;
+			let all_kitty_indexs =
+				OwnerKitties::<T>::get(&owner).ok_or(Error::<T>::EmptyKitties)?;
 
 			let mut result = Vec::new();
 			for kitty_index in all_kitty_indexs.iter() {
@@ -357,14 +365,13 @@ pub mod pallet {
 			}
 
 			Ok(result)
-		} 
+		}
 
 		pub fn inner_transfer(
 			from: &T::AccountId,
 			to: &T::AccountId,
 			kitty_id: &T::KittiyIndex,
 		) -> DispatchResult {
-			
 			ensure!(Self::kitty_owner(kitty_id) == Some(from.clone()), Error::<T>::NotOwner);
 
 			<KittyOwner<T>>::insert(kitty_id, to.clone());
@@ -374,6 +381,5 @@ pub mod pallet {
 
 			Ok(().into())
 		}
-
 	}
 }
