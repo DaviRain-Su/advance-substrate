@@ -72,8 +72,7 @@ pub mod pallet {
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use scale_info::{prelude::vec::Vec, TypeInfo};
-	use sp_runtime::traits::{AccountIdConversion, Hash};
-	use sp_runtime::traits::Zero;
+	use sp_runtime::traits::{AccountIdConversion, Hash, Zero};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -158,17 +157,17 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// kitty created
-		KittyCreated{ creater: T::AccountId, kitty_index: T::KittiyIndex },
+		KittyCreated { creater: T::AccountId, kitty_index: T::KittiyIndex },
 		/// kitty bred
-		KittyBred{creater: T::AccountId, kitty_index: T::KittiyIndex},
+		KittyBred { creater: T::AccountId, kitty_index: T::KittiyIndex },
 		/// kitty transfer
-		TransferKitty{ from: T::AccountId, to:  T::AccountId, kitty_index: T::KittiyIndex},
+		TransferKitty { from: T::AccountId, to: T::AccountId, kitty_index: T::KittiyIndex },
 		/// Sell kitty
-		SellKitty{seller: T::AccountId, escrow: T::AccountId, kitty_index: T::KittiyIndex},
+		SellKitty { seller: T::AccountId, escrow: T::AccountId, kitty_index: T::KittiyIndex },
 		/// cancel sell kitty
-		CancelSellKitty{escrow: T::AccountId, seller: T::AccountId, kitty_index:  T::KittiyIndex},
+		CancelSellKitty { escrow: T::AccountId, seller: T::AccountId, kitty_index: T::KittiyIndex },
 		/// Buy kitty
-		BuyKitty{seller: T::AccountId,buyer:  T::AccountId,  kitty_index: T::KittiyIndex },
+		BuyKitty { seller: T::AccountId, buyer: T::AccountId, kitty_index: T::KittiyIndex },
 	}
 
 	// Errors inform users that something went wrong.
@@ -187,7 +186,7 @@ pub mod pallet {
 		/// kitty no sell
 		KittyNoSell,
 		/// should not same kitty owner
-		ShouldNotSame
+		ShouldNotSame,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -216,7 +215,7 @@ pub mod pallet {
 			T::Currency::reserve(&who, deposit)?;
 
 			// emit event
-			Self::deposit_event(Event::KittyCreated{creater: who, kitty_index: kitty_id});
+			Self::deposit_event(Event::KittyCreated { creater: who, kitty_index: kitty_id });
 
 			Ok(().into())
 		}
@@ -258,7 +257,7 @@ pub mod pallet {
 			Self::store_kitty(kitty_id, new_kitty.clone(), &who)?;
 
 			// emit event
-			Self::deposit_event(Event::KittyBred{ creater: who, kitty_index: kitty_id});
+			Self::deposit_event(Event::KittyBred { creater: who, kitty_index: kitty_id });
 
 			Ok(().into())
 		}
@@ -295,7 +294,11 @@ pub mod pallet {
 			debug_assert!(err_amount.is_zero());
 
 			// emit event
-			Self::deposit_event(Event::BuyKitty{buyer: owner, seller: sell_kitty_owner, kitty_index: kitty_id});
+			Self::deposit_event(Event::BuyKitty {
+				buyer: owner,
+				seller: sell_kitty_owner,
+				kitty_index: kitty_id,
+			});
 			Ok(().into())
 		}
 
@@ -316,7 +319,11 @@ pub mod pallet {
 			<SellKitties<T>>::insert(kitty_id, (owner.clone(), escrow_account.clone()));
 
 			// emit event
-			Self::deposit_event(Event::SellKitty{seller: owner, escrow: escrow_account,kitty_index: kitty_id});
+			Self::deposit_event(Event::SellKitty {
+				seller: owner,
+				escrow: escrow_account,
+				kitty_index: kitty_id,
+			});
 			Ok(().into())
 		}
 
@@ -339,7 +346,11 @@ pub mod pallet {
 			<SellKitties<T>>::remove(kitty_id);
 
 			// emit event
-			Self::deposit_event(Event::CancelSellKitty{escrow: Self::account_id(), seller: owner, kitty_index: kitty_id});
+			Self::deposit_event(Event::CancelSellKitty {
+				escrow: Self::account_id(),
+				seller: owner,
+				kitty_index: kitty_id,
+			});
 			Ok(().into())
 		}
 	}
@@ -434,7 +445,11 @@ pub mod pallet {
 			<KittyOwner<T>>::insert(kitty_id, to.clone());
 
 			// emit event
-			Self::deposit_event(Event::TransferKitty{ from : from.clone(), to: to.clone(), kitty_index:  kitty_id.clone() });
+			Self::deposit_event(Event::TransferKitty {
+				from: from.clone(),
+				to: to.clone(),
+				kitty_index: kitty_id.clone(),
+			});
 
 			Ok(().into())
 		}
