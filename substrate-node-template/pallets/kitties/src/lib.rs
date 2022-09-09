@@ -67,6 +67,12 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
+	// all kitties Counter
+	#[pallet::storage]
+	#[pallet::getter(fn all_kittyies_count)]
+	pub type AllKittiesCount<T: Config> =
+		StorageValue<_, u64, ValueQuery>;
+	
 	#[pallet::type_value]
 	pub fn GetDefaultValue<T: Config>() -> T::KittiyIndex {
 		T::KittiyIndex::default()
@@ -281,8 +287,8 @@ pub mod pallet {
 
 			// set owner
 			<KittyOwner<T>>::insert(kitty_id, owner.clone());
-			// remove kitty from sell kitty queue
 
+			// remove kitty from sell kitty queue
 			<SellKitties<T>>::remove(kitty_id);
 
 			// emit event
@@ -292,6 +298,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		// escrow account 
 		fn account_id() -> T::AccountId {
 			T::EscrowAccount::get().into_account_truncating()
 		}
@@ -354,7 +361,8 @@ pub mod pallet {
 			}
 		}
 
-		fn get_all_kitties(owner: &T::AccountId) -> Result<Vec<Kitty>, sp_runtime::DispatchError> {
+		// get all kitty by account owner
+		pub fn get_all_kitties(owner: &T::AccountId) -> Result<Vec<Kitty>, sp_runtime::DispatchError> {
 			let all_kitty_indexs =
 				OwnerKitties::<T>::get(&owner).ok_or(Error::<T>::EmptyKitties)?;
 
