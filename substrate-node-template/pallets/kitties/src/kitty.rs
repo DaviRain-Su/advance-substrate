@@ -7,11 +7,11 @@ use sp_runtime::traits::{
     CheckEqual, MaybeDisplay, MaybeMallocSizeOf, MaybeSerializeDeserialize,
 	Member, SimpleBitOps,
 };
+use serde::{Serialize, Deserialize};
 
 // Kitty Information struct
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, Eq, PartialEq, MaxEncodedLen)]
 pub struct Kitty<Hash, Balance, AccountId> {
-	pub id: Hash,
 	pub dna: Hash,
 	pub price: Option<Balance>,
 	pub gender: Gender,
@@ -39,8 +39,8 @@ where
     // copy from frame_support::traits::tokens
 	Balances: Balance + MaybeSerializeDeserialize + Debug + MaxEncodedLen,
 {
-	pub fn new(id: Hash, owner: AccountId) -> Self {
-		Self { id: id.clone(), dna: id.clone(), price: None, gender: Gender::default(), owner }
+	pub fn new(dna: Hash, owner: AccountId) -> Self {
+		Self { dna, price: None, gender: Gender::default(), owner }
 	}
 }
 
