@@ -17,12 +17,8 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-mod kitty;
-pub use crate::kitty::Kitty;
-
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::Kitty;
 	use codec::{Codec, MaxEncodedLen};
 	use core::fmt::Debug;
 	use frame_support::{
