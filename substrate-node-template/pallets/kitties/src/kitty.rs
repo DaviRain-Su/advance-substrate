@@ -9,15 +9,16 @@ use sp_runtime::traits::{
 };
 
 // Kitty Information struct
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, Eq, PartialEq)]
-pub struct Kitty<Hash, Balance> {
-	id: Hash,
-	dna: Hash,
-	price: Balance,
-	gender: Gender,
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, Eq, PartialEq, MaxEncodedLen)]
+pub struct Kitty<Hash, Balance, AccountId> {
+	pub id: Hash,
+	pub dna: Hash,
+	pub price: Option<Balance>,
+	pub gender: Gender,
+	pub owner: AccountId,
 }
 
-impl<Hash, Balances> Kitty<Hash, Balances>
+impl<Hash, Balances, AccountId> Kitty<Hash, Balances, AccountId>
 where
     // copy from frame_support
 	Hash: Parameter
@@ -38,17 +39,20 @@ where
     // copy from frame_support::traits::tokens
 	Balances: Balance + MaybeSerializeDeserialize + Debug + MaxEncodedLen,
 {
-	pub fn new(id: Hash) -> Self {
-		Self { id: id.clone(), dna: id.clone(), price: 0u32.into(), gender: Gender::default() }
+	pub fn new(id: Hash, owner: AccountId) -> Self {
+		Self { id: id.clone(), dna: id.clone(), price: None, gender: Gender::default(), owner }
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, Eq, PartialEq)]
+// Enum declaration for Gender.
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, Eq, PartialEq, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Gender {
 	Male,
 	Female,
 }
 
+// Implementation to handle Gender type in Kitty struct.
 impl Default for Gender {
 	fn default() -> Self {
 		Gender::Male
