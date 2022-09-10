@@ -88,6 +88,8 @@ pub mod pallet {
 		KittyBidPriceToLow,
 		/// Ensures that an account has enough funds to purchase a kitty.
 		NotEnoughBalance,
+		/// Kitty id already exists.
+		KittyIdExists,
 	}
 
 	// Store item
@@ -375,6 +377,9 @@ pub mod pallet {
 			KittiesOwned::<T>::try_mutate(&owner, |kitty_vec| {
 				kitty_vec.try_push(kitty_id)
 			}).map_err(|_| Error::<T>::ExceedMaxKittyOwned)?;
+
+			// 确保新生成的kitty id在Kitties中没有存储
+			ensure!(!Kitties::<T>::exists(kitty_id), Error::<T>::KittyIdExists);
 
 			// 将kitty_id和kitty 映射保存
 			Kitties::<T>::insert(kitty_id, kitty);
