@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(dead_code)]
 
+use frame_support::traits::Currency;
 // Re-export pallet module information
 pub use pallet::*;
 
@@ -17,12 +18,15 @@ mod kitty;
 // Re-export kitty information
 pub use kitty::*;
 
+type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_support::traits::Randomness;
 	use frame_system::pallet_prelude::*;
-
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -34,7 +38,10 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		// TODO Part II: The Type of Random we want to specify for runtime.
+		type Currency: Currency<Self::AccountId>;
+
+		// The Type of Random we want to specify for runtime.
+		type KittyRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 	}
 
 	#[pallet::event]
@@ -49,7 +56,6 @@ pub mod pallet {
 		// TODO Part II
 	}
 
-
 	// define AllKittiesCount to count Kitties.
 	// keep track of a counter that will correspond to the total amount of Kitties in existence.
 	// 追踪已经产出的kitty的总的数量
@@ -62,10 +68,8 @@ pub mod pallet {
 
 	// TODO Part III: Our pallet's generic configuration.
 
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
 		// TODO part III: create_kitty
 
 		// TODO Part III: set_price
@@ -75,12 +79,18 @@ pub mod pallet {
 		// TODO Part III: buy_kitty
 
 		// TODO Part III: breed_kitty
-
 	}
 
 	// TODO Parts II: helper function for Kitty struct
 
 	impl<T: Config> Pallet<T> {
+		pub fn gender(dna: T::Hash) -> Gender {
+			if dna.as_ref()[0] % 2 == 0 {
+				Gender::Male
+			} else {
+				Gender::Female
+			}
+		}
 		// TODO Part III: helper functions for dispatchable functions
 
 		// TODO: increment_nonce, random_hash, mint, transfer_from

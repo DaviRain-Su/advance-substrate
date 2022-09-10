@@ -7,5 +7,4 @@ use crate::Pallet as Template;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 
-benchmarks! {
-}
+benchmarks! {}
