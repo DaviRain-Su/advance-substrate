@@ -103,14 +103,14 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn kitties)]
 	/// Stores a Kitty's unique traits, owner and price.
-	/// 根据kitty id 键值对映射 kitty
+	/// 将 kitty id 映射到 kitty
 	pub(super) type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, Kitty<T::Hash, BalanceOf<T>, T::AccountId>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn kitties_owned)]
+	#[pallet::getter(fn kitty_of_owner)]
 	/// Keeps track of what accounts own what Kitty.
 	/// 追踪一个账户拥有多少kitty
-	pub(super) type KittiesOwned<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::Hash, T::MaxKittyOwned>, ValueQuery>;
+	pub(super) type OwnedKitty<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::Hash, T::MaxKittyOwned>, ValueQuery>;
 
 	// Our pallet's genesis configuration
 	// 创世配置数据
@@ -203,7 +203,7 @@ pub mod pallet {
 
 			// verify the recipient has the capacity to receive one more kitty
 			// 确保给账户放入kitty不会超过kitty的最大容量
-			let to_owned = KittiesOwned::<T>::get(&to);
+			let to_owned = OwnedKitty::<T>::get(&to);
 			ensure!((to_owned.len() as u32) < T::MaxKittyOwned::get(), Error::<T>::ExceedMaxKittyOwned);
 
 
@@ -245,7 +245,7 @@ pub mod pallet {
 
 			// verify  the buyer has the capacity to receive once more kitty
 			// 确保给账户放入kitty不会超过kitty的最大容量
-			let to_owned = KittiesOwned::<T>::get(&buyer);
+			let to_owned = OwnedKitty::<T>::get(&buyer);
 			ensure!((to_owned.len() as u32) < T::MaxKittyOwned::get(), Error::<T>::ExceedMaxKittyOwned);
 
 			// 从kitty中获得这个kitty的所有者
@@ -374,12 +374,12 @@ pub mod pallet {
 
 			// Performs this operation first because as it may fail
 			// 将这个kitty 放入到对应的账户下去
-			KittiesOwned::<T>::try_mutate(&owner, |kitty_vec| {
+			OwnedKitty::<T>::try_mutate(&owner, |kitty_vec| {
 				kitty_vec.try_push(kitty_id)
 			}).map_err(|_| Error::<T>::ExceedMaxKittyOwned)?;
 
 			// 确保新生成的kitty id在Kitties中没有存储
-			ensure!(!Kitties::<T>::exists(kitty_id), Error::<T>::KittyIdExists);
+			ensure!(!Kitties::<T>::contains_key(kitty_id), Error::<T>::KittyIdExists);
 
 			// 将kitty_id和kitty 映射保存
 			Kitties::<T>::insert(kitty_id, kitty);
@@ -397,7 +397,7 @@ pub mod pallet {
 			// 获取kitty中的所有者
 			let pre_owner = kitty.owner.clone();
 
-			KittiesOwned::<T>::try_mutate(&pre_owner, |owned| {
+			OwnedKitty::<T>::try_mutate(&pre_owner, |owned| {
 				if let Some(id) = owned.iter().position(|&id| id == *kitty_id) {
 					owned.swap_remove(id);
 					return Ok(())
@@ -418,7 +418,7 @@ pub mod pallet {
 			Kitties::<T>::insert(kitty_id, kitty);
 
 			// 转移之后将这个kitty添加到转移后的账户(to)中去
-			KittiesOwned::<T>::try_mutate(&to, |vec| {
+			OwnedKitty::<T>::try_mutate(&to, |vec| {
 				vec.try_push(*kitty_id)
 			}).map_err(|_| Error::<T>::ExceedMaxKittyOwned)?;
 
