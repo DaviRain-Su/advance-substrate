@@ -50,7 +50,13 @@ pub mod pallet {
 	}
 
 
-	// ACTION: Storage item to keep track of all kitties
+	// define AllKittiesCount to count Kitties.
+	// keep track of a counter that will correspond to the total amount of Kitties in existence.
+	// 追踪已经产出的kitty的总的数量
+	// [substrate runtime storage](https://docs.substrate.io/build/runtime-storage/)
+	#[pallet::storage]
+	#[pallet::getter(fn all_kitties_count)]
+	pub(super) type AllKittiesCount<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	// TODO Part II: Remaining storage item.
 
