@@ -282,8 +282,6 @@ parameter_types! {
 	pub const KittyEscrowAccount: PalletId = PalletId(*b"py/kitti");
 }
 
-type KittyIndex = u32;
-
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 }
