@@ -1,13 +1,11 @@
-use core::fmt::Debug;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{Parameter, RuntimeDebug};
-use frame_support::traits::tokens::Balance;
+use core::fmt::Debug;
+use frame_support::{traits::tokens::Balance, Parameter, RuntimeDebug};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::{
-    CheckEqual, MaybeDisplay, MaybeMallocSizeOf, MaybeSerializeDeserialize,
-	Member, SimpleBitOps,
+	CheckEqual, MaybeDisplay, MaybeMallocSizeOf, MaybeSerializeDeserialize, Member, SimpleBitOps,
 };
-use serde::{Serialize, Deserialize};
 
 // Kitty Information struct
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, Eq, PartialEq, MaxEncodedLen)]
@@ -20,7 +18,7 @@ pub struct Kitty<Hash, Balance, AccountId> {
 
 impl<Hash, Balances, AccountId> Kitty<Hash, Balances, AccountId>
 where
-    // copy from frame_support
+	// copy from frame_support
 	Hash: Parameter
 		+ Member
 		+ MaybeSerializeDeserialize
@@ -36,7 +34,7 @@ where
 		+ AsMut<[u8]>
 		+ MaybeMallocSizeOf
 		+ MaxEncodedLen,
-    // copy from frame_support::traits::tokens
+	// copy from frame_support::traits::tokens
 	Balances: Balance + MaybeSerializeDeserialize + Debug + MaxEncodedLen,
 {
 	pub fn new(dna: Hash, owner: AccountId) -> Self {
